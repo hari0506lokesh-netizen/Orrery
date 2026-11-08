@@ -8,11 +8,26 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Unpack the project
+      - uses: actions/checkout@v5
+      - name: Find the project
         run: |
-          unzip -q -o Orrery-iOS.zip -d src
-          echo "PROJ=$GITHUB_WORKSPACE/src/Orrery-iOS" >> "$GITHUB_ENV"
+          echo "Files in this repository:"
+          find . -path ./.git -prune -o -type f -print | head -40
+          ZIP=$(find . -path ./.git -prune -o -type f -iname '*.zip' -print | head -1)
+          SEARCH=.
+          if [ -n "$ZIP" ]; then
+            echo "Unpacking $ZIP"
+            unzip -q -o "$ZIP" -d "$RUNNER_TEMP/src"
+            SEARCH="$RUNNER_TEMP/src"
+          fi
+          PBX=$(find "$SEARCH" -path '*/.git' -prune -o -path '*Orrery.xcodeproj/project.pbxproj' -print | head -1)
+          if [ -z "$PBX" ]; then
+            echo "::error::Orrery-iOS.zip isn't in this repository yet. Upload it with Add file → Upload files; the build reruns by itself."
+            exit 1
+          fi
+          PROJ=$(cd "$(dirname "$(dirname "$PBX")")" && pwd)
+          echo "Project folder: $PROJ"
+          echo "PROJ=$PROJ" >> "$GITHUB_ENV"
       - name: Build (unsigned, AltStore signs it)
         run: |
           cd "$PROJ"
